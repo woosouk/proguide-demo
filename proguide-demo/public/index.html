@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프로가이드 AI 분석 데모 | ProGuide</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        }
+        
+        .result-card {
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .loading-dot {
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+        
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.4;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function ProGuideDemo() {
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+
+            const examples = [
+                "법인 설립을 준비 중이고 예상 매출은 1억원입니다. 직원 3명을 채용할 예정입니다.",
+                "부동산 경매 낙찰 받았는데 세입자가 안 나갑니다.",
+                "중국에서 제품을 수입해서 판매하려고 하는데 관세 환급을 받고 싶습니다."
+            ];
+
+            const analyzeWithAI = async () => {
+                if (!input.trim()) {
+                    setError('상황을 입력해주세요.');
+                    return;
+                }
+
+                setLoading(true);
+                setError(null);
+                setResult(null);
+
+                try {
+                    // 백엔드 API 호출 (Vercel Serverless Function)
+                    const response = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            input: input
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'API 호출 실패');
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setResult(data.data);
+                    } else {
+                        throw new Error('분석 결과를 가져오지 못했습니다.');
+                    }
+
+                } catch (err) {
+                    console.error('Error:', err);
+                    setError(err.message || '분석 중 오류가 발생했습니다.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen">
+                    {/* 헤더 */}
+                    <div className="gradient-bg text-white py-16 px-4">
+                        <div className="max-w-4xl mx-auto">
+                            <h1 className="text-5xl font-black mb-4">프로가이드</h1>
+                            <p className="text-xl font-medium opacity-90">AI가 추천하는 딱 맞는 전문가</p>
+                            <p className="mt-4 text-lg opacity-80">66,000명의 전문자격사와 연 140만 예비창업자를 AI가 연결합니다</p>
+                        </div>
+                    </div>
+
+                    {/* 메인 콘텐츠 */}
+                    <div className="max-w-4xl mx-auto px-4 py-12">
+                        {/* 안내 */}
+                        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                                어떤 전문가가 필요하신가요?
+                            </h2>
+                            <p className="text-lg text-gray-600 mb-6">
+                                상황을 말씀해주시면 AI가 <span className="font-bold text-blue-600">5초 안에</span> 분석해드립니다
+                            </p>
+
+                            {/* 입력창 */}
+                            <textarea
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="예시: 법인 설립을 준비 중이고 예상 매출은 1억원입니다. 직원 3명을 채용할 예정입니다."
+                                rows={5}
+                                className="w-full p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg mb-4"
+                            />
+
+                            {/* 예시 버튼 */}
+                            <div className="mb-6">
+                                <p className="text-sm text-gray-500 mb-2">💡 예시를 클릭해보세요:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {examples.map((example, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setInput(example)}
+                                            className="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                        >
+                                            예시 {idx + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 분석 버튼 */}
+                            <button
+                                onClick={analyzeWithAI}
+                                disabled={loading || !input.trim()}
+                                className="w-full gradient-bg text-white py-4 px-8 rounded-lg text-xl font-bold 
+                                         hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-opacity"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        AI 분석 중
+                                        <span className="flex gap-1">
+                                            <span className="loading-dot">.</span>
+                                            <span className="loading-dot">.</span>
+                                            <span className="loading-dot">.</span>
+                                        </span>
+                                    </span>
+                                ) : (
+                                    '🤖 AI 분석 시작하기'
+                                )}
+                            </button>
+
+                            {/* 에러 메시지 */}
+                            {error && (
+                                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-red-600">{error}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 결과 */}
+                        {result && (
+                            <div className="result-card bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+                                <h2 className="text-3xl font-bold text-gray-900 mb-8">📊 AI 분석 결과</h2>
+
+                                <div className="space-y-6">
+                                    {/* 필요한 전문가 */}
+                                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl">
+                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                            ✅ 필요한 전문가
+                                        </h3>
+                                        <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-3">
+                                            {result.전문가}
+                                        </p>
+                                        <p className="text-gray-700 leading-relaxed">{result.이유}</p>
+                                    </div>
+
+                                    {/* 예상 비용 */}
+                                    <div className="bg-green-50 p-6 rounded-xl">
+                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                            💰 예상 비용
+                                        </h3>
+                                        <p className="text-2xl font-bold text-green-600">{result.예상비용}</p>
+                                    </div>
+
+                                    {/* 예상 기간 */}
+                                    <div className="bg-purple-50 p-6 rounded-xl">
+                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                            ⏱️ 예상 기간
+                                        </h3>
+                                        <p className="text-2xl font-bold text-purple-600">{result.예상기간}</p>
+                                    </div>
+
+                                    {/* 진행 절차 */}
+                                    <div className="bg-yellow-50 p-6 rounded-xl">
+                                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                            📋 진행 절차
+                                        </h3>
+                                        <ol className="space-y-3">
+                                            {result.절차.map((step, idx) => (
+                                                <li key={idx} className="flex gap-3">
+                                                    <span className="flex-shrink-0 w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center font-bold text-sm">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <span className="text-gray-700 pt-1">{step}</span>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </div>
+
+                                    {/* 추천 강의 */}
+                                    <div className="bg-pink-50 p-6 rounded-xl">
+                                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                            📚 추천 강의
+                                        </h3>
+                                        <ul className="space-y-3">
+                                            {result.추천강의.map((lecture, idx) => (
+                                                <li key={idx} className="flex items-start gap-3">
+                                                    <span className="text-2xl">🎓</span>
+                                                    <span className="text-gray-700 pt-1">{lecture}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="mt-6 p-4 bg-white rounded-lg border border-pink-200">
+                                            <p className="text-sm text-gray-600">
+                                                💡 <span className="font-semibold">프로가이드에서는</span> 전문가가 직접 제작한 강의로 사전 학습 후 신뢰 기반 매칭이 가능합니다!
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 다시 분석 버튼 */}
+                                <button
+                                    onClick={() => {
+                                        setResult(null);
+                                        setInput('');
+                                    }}
+                                    className="mt-8 w-full py-3 px-6 border-2 border-gray-300 rounded-lg
+                                             hover:bg-gray-50 transition-colors font-semibold"
+                                >
+                                    🔄 다른 상황 분석하기
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 푸터 안내 */}
+                        <div className="mt-12 text-center text-gray-500">
+                            <p className="text-sm">
+                                이것은 <span className="font-semibold">데모 페이지</span>입니다. 
+                                실제 서비스는 2025년 하반기 출시 예정입니다.
+                            </p>
+                            <p className="text-xs mt-2">© 2025 ProGuide. All rights reserved.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ProGuideDemo />, document.getElementById('root'));
+    </script>
+</body>
+</html>
