@@ -1,172 +1,136 @@
-// Vercel Serverless Function for Gemini API
+const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
-  // CORS 설정
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // CORS 헤더
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // OPTIONS 요청 처리 (CORS preflight)
+  // OPTIONS 요청 처리
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
-  // POST 요청만 허용
+  // POST만 허용
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { input } = req.body;
+    console.log('[1] Request received');
+    console.log('[2] Method:', req.method);
+    console.log('[3] Body:', req.body);
 
-    console.log('[DEBUG] Request received:', { hasInput: !!input });
+    const { input } = req.body || {};
 
-    if (!input || input.trim().length === 0) {
+    if (!input) {
+      console.log('[ERROR] No input provided');
       return res.status(400).json({ error: '입력값이 필요합니다.' });
     }
 
-    // 환경변수에서 API 키 가져오기
-    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('[4] Input length:', input.length);
 
-    console.log('[DEBUG] API Key exists:', !!apiKey);
+    // 환경변수 확인
+    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('[5] API Key exists:', !!apiKey);
+    console.log('[6] API Key length:', apiKey ? apiKey.length : 0);
 
     if (!apiKey) {
-      console.error('[ERROR] GEMINI_API_KEY not set');
+      console.log('[ERROR] GEMINI_API_KEY not set');
       return res.status(500).json({ 
         error: 'API 키가 설정되지 않았습니다.',
-        message: 'Vercel 환경변수에서 GEMINI_API_KEY를 설정해주세요.'
+        hint: 'Vercel 환경변수에서 GEMINI_API_KEY를 설정해주세요.'
       });
     }
 
-    // 시스템 프롬프트
-    const systemPrompt = `당신은 한국의 전문자격사(법무사, 세무사, 회계사, 노무사, 변리사, 관세사, 감정평가사) 추천 전문가입니다.
+    console.log('[7] Preparing Gemini API call...');
 
-사용자의 상황을 분석하여 다음을 JSON 형식으로 반환하세요:
+    const prompt = `당신은 한국의 전문자격사 추천 전문가입니다.
+
+다음 JSON 형식으로만 답변하세요:
 
 {
-  "전문가": "필요한 전문가 (예: 법무사, 세무사 등)",
-  "이유": "왜 이 전문가가 필요한지 2-3문장 설명",
-  "예상비용": "예상 비용 범위 (예: 50만원 ~ 100만원)",
-  "예상기간": "예상 소요 기간 (예: 2주 ~ 3주)",
-  "절차": ["절차1", "절차2", "절차3", "절차4", "절차5"],
-  "추천강의": ["강의1 제목 (10분)", "강의2 제목 (15분)", "강의3 제목 (12분)"]
+  "전문가": "필요한 전문가",
+  "이유": "이유 설명",
+  "예상비용": "비용 범위",
+  "예상기간": "소요 기간",
+  "절차": ["절차1", "절차2", "절차3"],
+  "추천강의": ["강의1", "강의2", "강의3"]
 }
 
-**전문가별 업무 범위:**
-- 법무사: 등기(법인설립, 부동산), 경매, 상속, 공증
-- 세무사: 세무신고(법인세, 소득세, 부가세), 절세 전략
-- 회계사: 재무제표 작성, 회계감사, 내부회계관리
-- 노무사: 4대보험, 근로계약, 취업규칙, 임금체계
-- 변리사: 특허, 상표, 디자인 출원 및 등록
-- 관세사: 수출입 신고, FTA, 관세 환급
-- 감정평가사: 부동산 가격 감정, 담보평가
+사용자 상황: ${input}`;
 
-반드시 JSON 형식으로만 답변하고, 마크다운 코드 블록(백틱)은 사용하지 마세요.
-
-사용자 상황: `;
-
-    console.log('[DEBUG] Calling Gemini API...');
-
-    // Gemini API 호출
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
-    const geminiResponse = await fetch(apiUrl, {
+    console.log('[8] Calling Gemini API...');
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: systemPrompt + input,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
-      }),
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      })
     });
 
-    console.log('[DEBUG] Gemini API status:', geminiResponse.status);
+    console.log('[9] Gemini response status:', response.status);
 
-    const responseText = await geminiResponse.text();
-    console.log('[DEBUG] Response length:', responseText.length);
+    const text = await response.text();
+    console.log('[10] Response length:', text.length);
 
-    if (!geminiResponse.ok) {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseText);
-      } catch (e) {
-        errorData = { message: responseText };
-      }
-      
-      console.error('[ERROR] Gemini API Error:', errorData);
-      
-      return res.status(geminiResponse.status).json({ 
-        error: 'AI 분석 중 오류가 발생했습니다.',
-        details: errorData,
-        status: geminiResponse.status
+    if (!response.ok) {
+      console.log('[ERROR] Gemini API error:', text.substring(0, 500));
+      return res.status(response.status).json({ 
+        error: 'Gemini API 오류',
+        status: response.status,
+        details: text.substring(0, 200)
       });
     }
 
-    // JSON 파싱
-    const data = JSON.parse(responseText);
+    const data = JSON.parse(text);
+    console.log('[11] JSON parsed');
 
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      console.error('[ERROR] Invalid response structure:', data);
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      console.log('[ERROR] Invalid response structure');
       return res.status(500).json({ 
-        error: 'AI 응답 형식이 올바르지 않습니다.',
+        error: '응답 형식 오류',
         data: data
       });
     }
 
-    const aiResponse = data.candidates[0].content.parts[0].text;
-    console.log('[DEBUG] AI Response received');
+    const aiText = data.candidates[0].content.parts[0].text;
+    console.log('[12] AI response length:', aiText.length);
 
     // JSON 파싱
-    let parsed;
+    let result;
     try {
-      const cleaned = aiResponse
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      parsed = JSON.parse(cleaned);
+      const cleaned = aiText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+      result = JSON.parse(cleaned);
+      console.log('[13] Result parsed successfully');
     } catch (e) {
-      try {
-        parsed = JSON.parse(aiResponse);
-      } catch (e2) {
-        console.error('[ERROR] JSON Parse Error:', aiResponse.substring(0, 200));
-        return res.status(500).json({ 
-          error: 'AI 응답을 JSON으로 변환할 수 없습니다.',
-          rawResponse: aiResponse.substring(0, 500)
-        });
-      }
+      console.log('[ERROR] JSON parse failed:', e.message);
+      return res.status(500).json({ 
+        error: 'JSON 파싱 실패',
+        raw: aiText.substring(0, 200)
+      });
     }
 
-    console.log('[DEBUG] Success!');
+    console.log('[14] Success! Returning result');
 
-    // 성공 응답
     return res.status(200).json({
       success: true,
-      data: parsed,
+      data: result
     });
 
   } catch (error) {
-    console.error('[ERROR] Handler Error:', error);
+    console.log('[FATAL ERROR]', error.message);
+    console.log('[STACK]', error.stack);
+    
     return res.status(500).json({ 
-      error: '서버 오류가 발생했습니다.',
+      error: '서버 오류',
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: error.stack
     });
   }
 };
