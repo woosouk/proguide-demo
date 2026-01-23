@@ -85,7 +85,9 @@
                 setResult(null);
 
                 try {
-                    // 백엔드 API 호출 (Vercel Serverless Function)
+                    console.log('[DEBUG] Calling backend API...');
+                    
+                    // 백엔드 API 호출
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: {
@@ -96,21 +98,34 @@
                         })
                     });
 
+                    console.log('[DEBUG] Response status:', response.status);
+
+                    const responseText = await response.text();
+                    console.log('[DEBUG] Response text:', responseText.substring(0, 200));
+
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'API 호출 실패');
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(responseText);
+                        } catch (e) {
+                            errorData = { message: responseText };
+                        }
+                        
+                        console.error('[ERROR] API Error:', errorData);
+                        throw new Error(errorData.error || errorData.message || '분석 중 오류가 발생했습니다.');
                     }
 
-                    const data = await response.json();
+                    const data = JSON.parse(responseText);
                     
-                    if (data.success) {
+                    if (data.success && data.data) {
+                        console.log('[DEBUG] Analysis complete!');
                         setResult(data.data);
                     } else {
                         throw new Error('분석 결과를 가져오지 못했습니다.');
                     }
 
                 } catch (err) {
-                    console.error('Error:', err);
+                    console.error('[ERROR] Frontend error:', err);
                     setError(err.message || '분석 중 오류가 발생했습니다.');
                 } finally {
                     setLoading(false);
@@ -190,6 +205,9 @@
                             {error && (
                                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                                     <p className="text-red-600">{error}</p>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        F12를 눌러 Console을 확인하시면 더 자세한 에러 정보를 볼 수 있습니다.
+                                    </p>
                                 </div>
                             )}
                         </div>

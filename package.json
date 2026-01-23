@@ -1,0 +1,12 @@
+{
+  "name": "proguide-demo",
+  "version": "1.0.0",
+  "description": "ProGuide AI Demo with Backend",
+  "main": "api/analyze.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "keywords": ["ai", "gemini", "proguide"],
+  "author": "",
+  "license": "MIT"
+}
